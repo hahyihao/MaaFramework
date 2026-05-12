@@ -244,12 +244,25 @@ static bool parse_duration_range(
     return false;
 }
 
+// 把裸名引用补齐为 FQN：含 "::" 视为绝对引用直接返回；fqn_prefix 为空则返回原样。
+static std::string qualify_name(const std::string& raw, const std::string& fqn_prefix)
+{
+    if (raw.empty() || fqn_prefix.empty()) {
+        return raw;
+    }
+    if (raw.find("::") != std::string::npos) {
+        return raw;
+    }
+    return fqn_prefix + "::" + raw;
+}
+
 bool PipelineParser::parse_node(
     const std::string& name,
     const json::value& input,
     PipelineData& output,
     const PipelineData& default_value,
-    const DefaultPipelineMgr& default_mgr)
+    const DefaultPipelineMgr& default_mgr,
+    const std::string& fqn_prefix)
 {
     LogDebug << VAR(name);
 
@@ -442,6 +455,27 @@ bool PipelineParser::parse_node(
                     [](const NodeAttr& n) { return n.is_fallback; }),
                 data.next.end());
         }
+    }
+
+    // Phase 2: sub_pipeline 字段
+    {
+        std::string sub_pipeline_str;
+        if (!get_and_check_value(input, "sub_pipeline", sub_pipeline_str, std::string {})) {
+            LogError << "failed to get_and_check_value sub_pipeline" << VAR(input);
+            return false;
+        }
+        if (!sub_pipeline_str.empty()) {
+            data.sub_pipeline = sub_pipeline_str;
+        }
+    }
+
+    // Phase 2: 把内部引用（fallback_node / sub_pipeline）按 fqn_prefix 解析为 FQN
+    // next/on_error 暂保留裸名，运行时 get_pipeline_data 做"全局唯一回退"
+    if (data.fallback_node) {
+        data.fallback_node = qualify_name(*data.fallback_node, fqn_prefix);
+    }
+    if (data.sub_pipeline) {
+        data.sub_pipeline = qualify_name(*data.sub_pipeline, fqn_prefix);
     }
 
     output = std::move(data);

@@ -6,6 +6,7 @@
 #include "MaaUtils/StringMisc.hpp"
 
 #include "PipelineParser.h"
+#include "PipelineResMgr.h"
 
 MAA_RES_NS_BEGIN
 
@@ -59,7 +60,8 @@ bool PipelineChecker::check_next_list(const std::vector<NodeAttr>& next_list, co
         if (node.anchor) {
             continue;
         }
-        if (!data_map.contains(node.name)) {
+        // 支持裸名查找：先精确匹配，再全局唯一回退
+        if (PipelineResMgr::lookup_with_bare_fallback(data_map, node.name) == data_map.end()) {
             LogError << "Invalid next node name" << VAR(node.name);
             return false;
         }

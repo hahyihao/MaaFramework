@@ -57,6 +57,34 @@ void PipelineResMgr::clear()
     paths_.clear();
 }
 
+PipelineDataMap::const_iterator PipelineResMgr::lookup_with_bare_fallback(
+    const PipelineDataMap& map,
+    const std::string& raw)
+{
+    // 直接精确匹配（覆盖 FQN 引用 / 老路径无前缀场景）
+    auto direct = map.find(raw);
+    if (direct != map.end()) {
+        return direct;
+    }
+    // raw 已含 "::"：FQN 失败就是失败，不再回退
+    if (raw.find("::") != std::string::npos) {
+        return map.end();
+    }
+    // 全局唯一回退：扫描所有 *::raw 候选
+    const std::string suffix = "::" + raw;
+    PipelineDataMap::const_iterator hit = map.end();
+    int hit_count = 0;
+    for (auto it = map.begin(); it != map.end(); ++it) {
+        if (it->first.size() > suffix.size() && it->first.ends_with(suffix)) {
+            hit = it;
+            if (++hit_count > 1) {
+                return map.end();  // 多候选，模糊匹配视为未命中
+            }
+        }
+    }
+    return hit;
+}
+
 std::string PipelineResMgr::compute_fqn_prefix(
     const std::filesystem::path& json_file,
     const std::filesystem::path& pipeline_root)
@@ -111,7 +139,10 @@ bool PipelineResMgr::load_all_json(const std::filesystem::path& path, const Defa
             continue;
         }
 
-        bool parsed = open_and_parse_file(entry_path, existing_keys, default_mgr);
+        // 计算 FQN 前缀（Phase 2 命名空间）
+        auto fqn_prefix = compute_fqn_prefix(entry_path, path);
+
+        bool parsed = open_and_parse_file(entry_path, existing_keys, default_mgr, fqn_prefix);
         if (!parsed) {
             LogError << "open_and_parse_file failed" << VAR(entry_path);
             return false;
@@ -126,9 +157,10 @@ bool PipelineResMgr::load_all_json(const std::filesystem::path& path, const Defa
 bool PipelineResMgr::open_and_parse_file(
     const std::filesystem::path& path,
     std::set<std::string>& existing_keys,
-    const DefaultPipelineMgr& default_mgr)
+    const DefaultPipelineMgr& default_mgr,
+    const std::string& fqn_prefix)
 {
-    LogFunc << VAR(path);
+    LogFunc << VAR(path) << VAR(fqn_prefix);
 
     auto json_opt = json::open(path, true, true);
     if (!json_opt) {
@@ -142,7 +174,7 @@ bool PipelineResMgr::open_and_parse_file(
         return false;
     }
 
-    if (!parse_and_override(json.as_object(), existing_keys, default_mgr)) {
+    if (!parse_and_override(json.as_object(), existing_keys, default_mgr, fqn_prefix)) {
         LogError << "parse_config failed" << VAR(path) << VAR(json);
         return false;
     }
@@ -159,11 +191,12 @@ std::vector<std::string> PipelineResMgr::get_node_list() const
 bool PipelineResMgr::parse_and_override(
     const json::value& input,
     std::set<std::string>& existing_keys,
-    const DefaultPipelineMgr& default_mgr)
+    const DefaultPipelineMgr& default_mgr,
+    const std::string& fqn_prefix)
 {
     bool ret = false;
     if (input.is_object()) {
-        ret = parse_and_override_once(input.as_object(), existing_keys, default_mgr);
+        ret = parse_and_override_once(input.as_object(), existing_keys, default_mgr, fqn_prefix);
     }
     else if (input.is_array()) {
         ret = !input.empty();
@@ -172,7 +205,7 @@ bool PipelineResMgr::parse_and_override(
                 LogError << "input is not json array of object" << VAR(input);
                 return false;
             }
-            ret &= parse_and_override_once(val.as_object(), existing_keys, default_mgr);
+            ret &= parse_and_override_once(val.as_object(), existing_keys, default_mgr, fqn_prefix);
         }
     }
     else {
@@ -186,8 +219,11 @@ bool PipelineResMgr::parse_and_override(
 bool PipelineResMgr::parse_and_override_once(
     const json::object& input,
     std::set<std::string>& existing_keys,
-    const DefaultPipelineMgr& default_mgr)
+    const DefaultPipelineMgr& default_mgr,
+    const std::string& /*fqn_prefix*/)
 {
+    // 注意：当前版本 fqn_prefix 暂不参与节点 key 注入，保留向后兼容（同名节点跨文件仍冲突）。
+    // 完整 FQN 命名空间隔离将在后续版本提供；形参保留以避免后续 ABI 变更。
     for (const auto& [key, value] : input) {
         if (key.empty()) {
             LogError << "key is empty" << VAR(key);
@@ -208,7 +244,9 @@ bool PipelineResMgr::parse_and_override_once(
 
         PipelineData result;
         const auto& default_result = pipeline_data_map_.contains(key) ? pipeline_data_map_.at(key) : default_mgr.get_pipeline();
-        bool ret = PipelineParser::parse_node(key, value, result, default_result, default_mgr);
+        // fqn_prefix 当前传空 — 因 key 未注入 FQN，引用也不应被 qualify。
+        // 保留 fqn_prefix 形参以便后续完整启用命名空间时无需改 ABI。
+        bool ret = PipelineParser::parse_node(key, value, result, default_result, default_mgr, {});
         if (!ret) {
             LogError << "parse_task failed" << VAR(key) << VAR(value);
             return false;

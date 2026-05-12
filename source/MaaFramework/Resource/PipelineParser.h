@@ -18,12 +18,16 @@ class PipelineParser
 public:
     PipelineParser() = delete;
 
+    // fqn_prefix: 该节点所属文件的命名空间前缀（如 "battle/fight"）
+    //   - 空字符串表示无命名空间（默认 / override_pipeline 调用路径）
+    //   - 非空时，fallback_node / sub_pipeline 引用会被解析为 FQN
     static bool parse_node(
         const std::string& name,
         const json::value& input,
         PipelineData& output,
         const PipelineData& parent_values,
-        const DefaultPipelineMgr& default_mgr);
+        const DefaultPipelineMgr& default_mgr,
+        const std::string& fqn_prefix = {});
 
     static bool parse_recognition(
         const json::value& input,

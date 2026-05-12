@@ -275,7 +275,8 @@ bool ResourceMgr::override_image(const std::string& image_name, const cv::Mat& i
 std::optional<json::object> ResourceMgr::get_node_data(const std::string& node_name) const
 {
     const auto& pp_map = pipeline_res_.get_pipeline_data_map();
-    auto it = pp_map.find(node_name);
+    // 支持裸名查找：先精确匹配，未命中则在 *::node_name 中找唯一候选
+    auto it = PipelineResMgr::lookup_with_bare_fallback(pp_map, node_name);
     if (it == pp_map.end()) {
         return std::nullopt;
     }

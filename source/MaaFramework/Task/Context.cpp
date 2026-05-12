@@ -11,6 +11,7 @@
 #include "Resource/PipelineChecker.h"
 #include "Resource/PipelineDumper.h"
 #include "Resource/PipelineParser.h"
+#include "Resource/PipelineResMgr.h"
 #include "Tasker/Tasker.h"
 
 MAA_TASK_NS_BEGIN
@@ -323,9 +324,10 @@ std::optional<std::string> Context::get_anchor(const std::string& anchor_name) c
 
 std::optional<PipelineData> Context::get_pipeline_data(const std::string& node_name) const
 {
-    auto override_it = pipeline_override_.find(node_name);
+    // 第一优先：override（含 FQN / 裸名两种 key）
+    auto override_it = MAA_RES_NS::PipelineResMgr::lookup_with_bare_fallback(pipeline_override_, node_name);
     if (override_it != pipeline_override_.end()) {
-        LogDebug << "found in override" << VAR(node_name);
+        LogDebug << "found in override" << VAR(node_name) << VAR(override_it->first);
         return override_it->second;
     }
 
@@ -340,8 +342,11 @@ std::optional<PipelineData> Context::get_pipeline_data(const std::string& node_n
     }
 
     const auto& raw_pp_map = resource->pipeline_res().get_pipeline_data_map();
-    auto raw_it = raw_pp_map.find(node_name);
+    auto raw_it = MAA_RES_NS::PipelineResMgr::lookup_with_bare_fallback(raw_pp_map, node_name);
     if (raw_it != raw_pp_map.end()) {
+        if (raw_it->first != node_name) {
+            LogDebug << "resolved bare name via fallback" << VAR(node_name) << VAR(raw_it->first);
+        }
         return raw_it->second;
     }
 
