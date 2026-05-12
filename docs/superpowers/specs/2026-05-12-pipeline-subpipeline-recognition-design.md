@@ -259,7 +259,9 @@ NodeResult PipelineTask::run_recognition(const PipelineData& data, int depth) {
 
 ### 8.3 execute_once 返回值扩展
 
-当前 `execute_once` 返回 `bool`（success / fail）。为了支持 box 上浮，需要返回 **结构体**：
+当前 `execute_once` 签名是 `void execute_once(const std::string& pipeline_entry, int depth)` —— 不返回任何值，只通过副作用（执行 action、递归 sub_pipeline）跑一遍。
+
+为了支持 box 上浮，需要改为返回 **结构体**：
 
 ```cpp
 struct ExecOnceResult {
@@ -267,9 +269,16 @@ struct ExecOnceResult {
     std::optional<cv::Rect> hit_box;
     std::string hit_detail;
 };
+
+ExecOnceResult execute_once(const std::string& pipeline_entry, int depth);
 ```
 
-**采用结构体返回**，不引入新的成员变量隐式状态。execute_once 的 `bool` 现有调用点（loop_scan 主循环、`sub_pipeline` 字段递归）只读取 `.hit` 字段、行为不变。
+**采用结构体返回，不引入新的成员变量隐式状态。** 现有两处调用点改造：
+
+1. `run_loop_scan` 主循环：`execute_once(entry, 0)` 只是丢弃返回值 —— 改成 `(void)execute_once(...)` 或直接忽略
+2. `execute_once` 内部"命中后递归 sub_pipeline"：`execute_once(*hit_data_opt->sub_pipeline, depth + 1)` 也是丢弃返回值 —— 同样改成忽略
+
+两处现有行为完全不变，只是函数签名从 void 改为返回结构体。SubPipeline reco 分支新加，它会真正读取 `.hit / .hit_box / .hit_detail`。
 
 ---
 
