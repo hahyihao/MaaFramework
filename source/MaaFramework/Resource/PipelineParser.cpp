@@ -325,6 +325,22 @@ bool PipelineParser::parse_node(
         data.attach |= *std::move(attach_opt);
     }
 
+    // 从 next 中提取 [Fallback] 节点：作为任务级全局兜底
+    // entry 节点的 next 列表里若出现 [Fallback]XXX，把 XXX 提到 fallback_node 字段
+    // 兜底节点不再参与主链扫描
+    {
+        auto fb_it = std::ranges::find_if(
+            data.next,
+            [](const NodeAttr& n) { return n.is_fallback; });
+        if (fb_it != data.next.end()) {
+            data.fallback_node = fb_it->name;
+            data.next.erase(
+                std::remove_if(data.next.begin(), data.next.end(),
+                    [](const NodeAttr& n) { return n.is_fallback; }),
+                data.next.end());
+        }
+    }
+
     output = std::move(data);
 
     return true;
@@ -1830,6 +1846,9 @@ bool PipelineParser::parse_node_string_in_next(const std::string& raw, NodeAttr&
         }
         else if (attr == PipelineData::kNodeAttr_Anchor) {
             output.anchor = true;
+        }
+        else if (attr == PipelineData::kNodeAttr_Fallback) {
+            output.is_fallback = true;
         }
         else {
             LogWarn << "Unrecognized node attribute" << VAR(attr) << VAR(raw);
