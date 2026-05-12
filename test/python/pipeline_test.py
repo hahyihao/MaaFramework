@@ -200,6 +200,9 @@ class PipelineTestRecognition(CustomRecognition):
         # 8. 测试 Node 属性
         self._test_node_attributes(context)
 
+        # 8.5 测试 loop_scan 模式 / [Fallback] / cycle_delay 解析
+        self._test_loop_scan_mode(context)
+
         # 9. 测试 anchor 对象格式
         self._test_anchor_object_format(context)
 
@@ -914,6 +917,120 @@ class PipelineTestRecognition(CustomRecognition):
         assert_eq(obj.on_error[0].jump_back, True, "on_error[0].jump_back")
 
         print("    PASS: node attributes")
+
+    def _test_loop_scan_mode(self, context: Context):
+        """测试 task_mode / [Fallback] / cycle_delay 字段解析"""
+        print("  Testing loop_scan mode parsing...")
+
+        # 1. task_mode 默认为 state_machine
+        new_ctx = context.clone()
+        new_ctx.override_pipeline(
+            {
+                "DefaultModeNode": {
+                    "recognition": "DirectHit",
+                    "action": "DoNothing",
+                }
+            }
+        )
+        obj = new_ctx.get_node_object("DefaultModeNode")
+        assert_eq(obj.task_mode, "state_machine", "default task_mode")
+        assert_eq(obj.fallback_node, None, "default fallback_node")
+
+        # 2. task_mode = loop_scan + [Fallback] 提取 + cycle_delay 标量
+        new_ctx = context.clone()
+        new_ctx.override_pipeline(
+            {
+                "A": {"recognition": "DirectHit", "action": "DoNothing"},
+                "B": {"recognition": "DirectHit", "action": "DoNothing"},
+                "MyFallback": {"recognition": "DirectHit", "action": "DoNothing"},
+                "LoopScanNode": {
+                    "task_mode": "loop_scan",
+                    "recognition": "DirectHit",
+                    "action": "DoNothing",
+                    "next": ["A", "B", "[Fallback]MyFallback"],
+                    "cycle_delay": 500,
+                },
+            }
+        )
+
+        obj = new_ctx.get_node_object("LoopScanNode")
+        assert_eq(obj.task_mode, "loop_scan", "task_mode")
+        assert_eq(obj.fallback_node, "MyFallback", "fallback_node extracted")
+        # next 应只剩 A、B（[Fallback] 已被提取）
+        assert_eq(len(obj.next), 2, "next len after fallback extraction")
+        assert_eq(obj.next[0].name, "A", "next[0]")
+        assert_eq(obj.next[1].name, "B", "next[1]")
+        # 各项 is_fallback 应为 False
+        assert_eq(obj.next[0].is_fallback, False, "next[0].is_fallback")
+        assert_eq(obj.next[1].is_fallback, False, "next[1].is_fallback")
+        assert_eq(obj.cycle_delay, 500, "cycle_delay scalar")
+
+        # 3. cycle_delay 数组写法
+        new_ctx = context.clone()
+        new_ctx.override_pipeline(
+            {
+                "A2": {"recognition": "DirectHit", "action": "DoNothing"},
+                "RangeDelayNode": {
+                    "task_mode": "loop_scan",
+                    "recognition": "DirectHit",
+                    "action": "DoNothing",
+                    "next": ["A2"],
+                    "cycle_delay": [300, 800],
+                },
+            }
+        )
+        obj = new_ctx.get_node_object("RangeDelayNode")
+        # cycle_delay 经 Dumper 转回后是 list 形式
+        assert_true(isinstance(obj.cycle_delay, list), "cycle_delay is array")
+        assert_eq(obj.cycle_delay[0], 300, "cycle_delay min")
+        assert_eq(obj.cycle_delay[1], 800, "cycle_delay max")
+
+        # 4. 非法 task_mode 应当 override 失败
+        new_ctx = context.clone()
+        ok = new_ctx.override_pipeline(
+            {
+                "BadModeNode": {
+                    "task_mode": "no_such_mode",
+                    "recognition": "DirectHit",
+                    "action": "DoNothing",
+                }
+            }
+        )
+        assert_eq(ok, False, "override should reject invalid task_mode")
+
+        # 5. cycle_delay max < min 应当 override 失败
+        new_ctx = context.clone()
+        ok = new_ctx.override_pipeline(
+            {
+                "A3": {"recognition": "DirectHit", "action": "DoNothing"},
+                "BadRangeNode": {
+                    "task_mode": "loop_scan",
+                    "recognition": "DirectHit",
+                    "action": "DoNothing",
+                    "next": ["A3"],
+                    "cycle_delay": [800, 300],
+                },
+            }
+        )
+        assert_eq(ok, False, "override should reject cycle_delay max < min")
+
+        # 6. cycle_delay 空数组应当 override 失败
+        new_ctx = context.clone()
+        ok = new_ctx.override_pipeline(
+            {
+                "A4": {"recognition": "DirectHit", "action": "DoNothing"},
+                "EmptyArrNode": {
+                    "task_mode": "loop_scan",
+                    "recognition": "DirectHit",
+                    "action": "DoNothing",
+                    "next": ["A4"],
+                    "cycle_delay": [],
+                },
+            }
+        )
+        assert_eq(ok, False, "override should reject empty cycle_delay array")
+
+        print("    PASS: loop_scan mode + [Fallback] + cycle_delay")
 
     def _test_anchor_object_format(self, context: Context):
         print("  Testing anchor object format...")
