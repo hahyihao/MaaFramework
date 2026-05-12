@@ -220,10 +220,14 @@ bool PipelineResMgr::parse_and_override_once(
     const json::object& input,
     std::set<std::string>& existing_keys,
     const DefaultPipelineMgr& default_mgr,
-    const std::string& /*fqn_prefix*/)
+    const std::string& fqn_prefix)
 {
-    // 注意：当前版本 fqn_prefix 暂不参与节点 key 注入，保留向后兼容（同名节点跨文件仍冲突）。
-    // 完整 FQN 命名空间隔离将在后续版本提供；形参保留以避免后续 ABI 变更。
+    // 用户在 JSON 里写的是裸名（如 "兜底"），按 fqn_prefix 注入命名空间得到
+    // full_key（如 "battle/fight::兜底"），用作 pipeline_data_map_ 的 key。
+    // 这样多个文件可以拥有同名节点而不冲突。
+    // 引用解析：bare-name 查找时通过 lookup_with_bare_fallback 全局唯一匹配回退；
+    // 文件内部引用（fallback_node / sub_pipeline）在 parse_node 里直接 qualify 为 FQN。
+    // override_pipeline 路径 fqn_prefix 为空，行为与老路径完全一致（裸名 key）。
     for (const auto& [key, value] : input) {
         if (key.empty()) {
             LogError << "key is empty" << VAR(key);
@@ -233,8 +237,9 @@ bool PipelineResMgr::parse_and_override_once(
             LogInfo << "key starts with '$', skip" << VAR(key);
             continue;
         }
-        if (existing_keys.contains(key)) {
-            LogError << "key already exists" << VAR(key);
+        std::string full_key = fqn_prefix.empty() ? key : (fqn_prefix + "::" + key);
+        if (existing_keys.contains(full_key)) {
+            LogError << "key already exists" << VAR(full_key);
             return false;
         }
         if (!value.is_object()) {
@@ -243,17 +248,16 @@ bool PipelineResMgr::parse_and_override_once(
         }
 
         PipelineData result;
-        const auto& default_result = pipeline_data_map_.contains(key) ? pipeline_data_map_.at(key) : default_mgr.get_pipeline();
-        // fqn_prefix 当前传空 — 因 key 未注入 FQN，引用也不应被 qualify。
-        // 保留 fqn_prefix 形参以便后续完整启用命名空间时无需改 ABI。
-        bool ret = PipelineParser::parse_node(key, value, result, default_result, default_mgr, {});
+        const auto& default_result =
+            pipeline_data_map_.contains(full_key) ? pipeline_data_map_.at(full_key) : default_mgr.get_pipeline();
+        bool ret = PipelineParser::parse_node(full_key, value, result, default_result, default_mgr, fqn_prefix);
         if (!ret) {
-            LogError << "parse_task failed" << VAR(key) << VAR(value);
+            LogError << "parse_task failed" << VAR(full_key) << VAR(value);
             return false;
         }
 
-        existing_keys.emplace(key);
-        pipeline_data_map_.insert_or_assign(key, std::move(result));
+        existing_keys.emplace(full_key);
+        pipeline_data_map_.insert_or_assign(full_key, std::move(result));
     }
 
     return true;

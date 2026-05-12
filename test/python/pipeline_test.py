@@ -139,7 +139,10 @@ def test_resource_node_list(resource: Resource):
     node_list = resource.node_list
     assert_true(isinstance(node_list, list), "node_list should be list")
     assert_true(len(node_list) > 0, "node_list should not be empty")
-    assert_true("TestBasic" in node_list, "TestBasic should be in node_list")
+    # 文件加载的节点会带文件命名空间前缀（如 "test::TestBasic"）；
+    # override_pipeline 直接添加的节点是裸名。两种形式都接受。
+    matched = any(name == "TestBasic" or name.endswith("::TestBasic") for name in node_list)
+    assert_true(matched, "TestBasic (or *::TestBasic) should be in node_list")
 
     print(f"  Found {len(node_list)} nodes: {node_list[:5]}...")
     print("  PASS: resource.node_list")
