@@ -20,6 +20,7 @@ class JRecognitionType(StrEnum):
     And = "And"
     Or = "Or"
     Custom = "Custom"
+    SubPipeline = "SubPipeline"
 
 
 class JActionType(StrEnum):
@@ -137,6 +138,12 @@ class JCustomRecognition:
 
 
 @dataclass
+class JSubPipelineRecognition:
+    # Phase 3: 委托识别给一个子流水线 entry node。recognition_pipeline 是该 entry 节点名。
+    recognition_pipeline: str  # 必选
+
+
+@dataclass
 class JAnd:
     # all_of: List of sub-recognitions. Each element can be:
     #   - str: node name reference (uses that node's recognition params)
@@ -165,6 +172,7 @@ JRecognitionParam = Union[
     JAnd,
     JOr,
     JCustomRecognition,
+    JSubPipelineRecognition,
 ]
 
 
@@ -377,6 +385,8 @@ class JPipelineData:
     cycle_delay_max: Optional[int] = None
     # Phase 2: 子 pipeline 递归调用
     sub_pipeline: Optional[str] = None
+    # Phase 3: SubPipeline reco 委托识别（recognition="SubPipeline" 时生效）
+    recognition_pipeline: Optional[str] = None
     focus: Any = None
     attach: Dict = field(default_factory=dict)
 
@@ -431,6 +441,7 @@ class JPipelineParser:
             JRecognitionType.And: JAnd,
             JRecognitionType.Or: JOr,
             JRecognitionType.Custom: JCustomRecognition,
+            JRecognitionType.SubPipeline: JSubPipelineRecognition,
         }
         return cls._parse_param(param_type, param_data, param_type_map)
 
@@ -534,6 +545,7 @@ class JPipelineParser:
             cycle_delay=data.get("cycle_delay", 1000),
             cycle_delay_max=data.get("cycle_delay_max"),
             sub_pipeline=data.get("sub_pipeline"),
+            recognition_pipeline=data.get("recognition_pipeline"),
             focus=data.get("focus"),
             attach=data.get("attach"),
         )
