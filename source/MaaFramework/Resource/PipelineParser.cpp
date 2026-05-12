@@ -478,6 +478,14 @@ bool PipelineParser::parse_node(
         data.sub_pipeline = qualify_name(*data.sub_pipeline, fqn_prefix);
     }
 
+    // SubPipeline reco param: qualify recognition_pipeline 引用为 FQN
+    if (data.reco_type == Recognition::Type::SubPipeline) {
+        auto* sp = std::get_if<Recognition::SubPipelineParam>(&data.reco_param);
+        if (sp && !sp->recognition_pipeline.empty()) {
+            sp->recognition_pipeline = qualify_name(sp->recognition_pipeline, fqn_prefix);
+        }
+    }
+
     output = std::move(data);
 
     return true;
@@ -612,6 +620,20 @@ bool PipelineParser::parse_recognition(
             param_input,
             std::get<CustomRecognitionParam>(out_param),
             same_type ? std::get<CustomRecognitionParam>(parent_param) : default_param);
+    } break;
+
+    case Type::SubPipeline: {
+        SubPipelineParam param;
+        if (!get_and_check_value(param_input, "recognition_pipeline", param.recognition_pipeline, std::string {})) {
+            LogError << "failed to get_and_check_value recognition_pipeline" << VAR(param_input);
+            return false;
+        }
+        if (param.recognition_pipeline.empty()) {
+            LogError << "recognition_pipeline is empty" << VAR(param_input);
+            return false;
+        }
+        out_param = std::move(param);
+        return true;
     } break;
 
     default:

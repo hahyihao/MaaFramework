@@ -38,13 +38,13 @@ PowerShell 在 D:\MaaFramework 下：
 
 ```powershell
 # 一次性配置（如未配置）
-cmd /c "`"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat`" -arch=x64 && cmake -S . -B build -G `"Ninja Multi-Config`" -DWITH_DBG_CONTROLLER=ON"
+cmd /c "`"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat`" -arch=x64 && cmake -S . -B build -G `"Ninja Multi-Config`" -DWITH_DBG_CONTROLLER=ON"
 
 # 增量构建
-cmd /c "`"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat`" -arch=x64 && cmake --build build --config RelWithDebInfo"
+cmd /c "`"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat`" -arch=x64 && cmake --build build --config RelWithDebInfo"
 
 # 安装到 install/ 目录（smoke test 用）
-cmd /c "`"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat`" -arch=x64 && cmake --install build --config RelWithDebInfo --prefix install"
+cmd /c "`"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat`" -arch=x64 && cmake --install build --config RelWithDebInfo --prefix install"
 ```
 
 Python 测试：
@@ -137,7 +137,7 @@ using Param = std::variant<
 - [ ] **Step 5: 验证编译**
 
 ```powershell
-cmd /c "`"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat`" -arch=x64 && cmake --build build --config RelWithDebInfo --target MaaFramework"
+cmd /c "`"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat`" -arch=x64 && cmake --build build --config RelWithDebInfo --target MaaFramework"
 ```
 
 Expected: 编译通过。因为新增枚举值还没在任何 switch 里处理，但编译器 `-Werror` 对 switch 完备性可能报警 —— 如果报警需要在下一 task 处理 switch。先看是否过。
@@ -204,7 +204,7 @@ if (data.reco_type == Recognition::Type::SubPipeline) {
 - [ ] **Step 3: 验证编译**
 
 ```powershell
-cmd /c "`"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat`" -arch=x64 && cmake --build build --config RelWithDebInfo --target MaaFramework"
+cmd /c "`"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat`" -arch=x64 && cmake --build build --config RelWithDebInfo --target MaaFramework"
 ```
 
 Expected: 编译通过。
@@ -308,7 +308,7 @@ bool PipelineChecker::check_all_recognition_pipeline(const PipelineDataMap& data
 - [ ] **Step 4: 验证编译**
 
 ```powershell
-cmd /c "`"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat`" -arch=x64 && cmake --build build --config RelWithDebInfo --target MaaFramework"
+cmd /c "`"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat`" -arch=x64 && cmake --build build --config RelWithDebInfo --target MaaFramework"
 ```
 
 Expected: 编译通过。
@@ -511,7 +511,7 @@ PipelineTask::ExecOnceResult PipelineTask::execute_once(const std::string& pipel
 - [ ] **Step 5: 验证编译**
 
 ```powershell
-cmd /c "`"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat`" -arch=x64 && cmake --build build --config RelWithDebInfo --target MaaFramework"
+cmd /c "`"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat`" -arch=x64 && cmake --build build --config RelWithDebInfo --target MaaFramework"
 ```
 
 Expected: 编译通过。如果有 `run_next` 其他调用点（例如 RecognitionTask 或 ActionTask 之类）也调用了 PipelineTask::run_next，会编译失败 —— 检查 `grep -rn "run_next("`，逐个修。从 Grep 结果看 run_next 是 PipelineTask 私有方法，只在 PipelineTask.cpp 内部调用，不应有外部调用点。
@@ -519,7 +519,7 @@ Expected: 编译通过。如果有 `run_next` 其他调用点（例如 Recogniti
 - [ ] **Step 6: 跑 phase1/phase2 已有 smoke test 确认无回归**
 
 ```powershell
-cmd /c "`"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat`" -arch=x64 && cmake --install build --config RelWithDebInfo --prefix install"
+cmd /c "`"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat`" -arch=x64 && cmake --install build --config RelWithDebInfo --prefix install"
 python test/python/smoke_loopscan.py source/binding/Python install
 ```
 
@@ -598,7 +598,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 - [ ] **Step 2: 验证编译**
 
 ```powershell
-cmd /c "`"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat`" -arch=x64 && cmake --build build --config RelWithDebInfo --target MaaFramework"
+cmd /c "`"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat`" -arch=x64 && cmake --build build --config RelWithDebInfo --target MaaFramework"
 ```
 
 Expected: 编译通过。
@@ -606,7 +606,7 @@ Expected: 编译通过。
 - [ ] **Step 3: 跑现有 smoke test 确认未破坏老场景**
 
 ```powershell
-cmd /c "`"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat`" -arch=x64 && cmake --install build --config RelWithDebInfo --prefix install"
+cmd /c "`"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat`" -arch=x64 && cmake --install build --config RelWithDebInfo --prefix install"
 python test/python/smoke_loopscan.py source/binding/Python install
 ```
 
@@ -651,7 +651,7 @@ case Recognition::Type::SubPipeline: {
 - [ ] **Step 2: 验证编译**
 
 ```powershell
-cmd /c "`"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat`" -arch=x64 && cmake --build build --config RelWithDebInfo --target MaaFramework"
+cmd /c "`"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat`" -arch=x64 && cmake --build build --config RelWithDebInfo --target MaaFramework"
 ```
 
 Expected: 编译通过。
@@ -685,7 +685,7 @@ std::optional<std::string> recognition_pipeline;
 - [ ] **Step 2: 验证编译**
 
 ```powershell
-cmd /c "`"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat`" -arch=x64 && cmake --build build --config RelWithDebInfo --target MaaFramework"
+cmd /c "`"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat`" -arch=x64 && cmake --build build --config RelWithDebInfo --target MaaFramework"
 ```
 
 Expected: 编译通过。
@@ -1022,7 +1022,7 @@ def _test_sub_pipeline_recognition_invalid_ref(self):
 - [ ] **Step 2: 运行单元测试**
 
 ```powershell
-cmd /c "`"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat`" -arch=x64 && cmake --install build --config RelWithDebInfo --prefix install"
+cmd /c "`"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat`" -arch=x64 && cmake --install build --config RelWithDebInfo --prefix install"
 python test/python/pipeline_test.py source/binding/Python install
 ```
 
@@ -1155,7 +1155,7 @@ assert SubRecoCounters.on_dialog_hit == 1
 - [ ] **Step 3: 运行集成测试**
 
 ```powershell
-cmd /c "`"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat`" -arch=x64 && cmake --install build --config RelWithDebInfo --prefix install"
+cmd /c "`"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat`" -arch=x64 && cmake --install build --config RelWithDebInfo --prefix install"
 python test/python/smoke_loopscan.py source/binding/Python install
 ```
 
@@ -1187,8 +1187,8 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 
 ```powershell
 # 完整 rebuild + install
-cmd /c "`"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat`" -arch=x64 && cmake --build build --config RelWithDebInfo"
-cmd /c "`"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat`" -arch=x64 && cmake --install build --config RelWithDebInfo --prefix install"
+cmd /c "`"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat`" -arch=x64 && cmake --build build --config RelWithDebInfo"
+cmd /c "`"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat`" -arch=x64 && cmake --install build --config RelWithDebInfo --prefix install"
 
 # 所有测试
 python test/python/pipeline_test.py source/binding/Python install
