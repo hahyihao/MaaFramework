@@ -442,6 +442,7 @@ declare global {
                 name?: string
                 jump_back?: boolean
                 anchor?: boolean
+                is_fallback?: boolean
             },
             'name',
             Mode
@@ -473,6 +474,9 @@ declare global {
             repeat?: number
             repeat_delay?: number
             repeat_wait_freezes?: RemoveIfDump<number, Mode> | WaitFreeze
+            // Phase 1: loop_scan 相关
+            task_mode?: 'state_machine' | 'loop_scan'
+            cycle_delay?: number | [number, number]
             focus?: unknown
             attach?: Record<string, unknown>
         }
