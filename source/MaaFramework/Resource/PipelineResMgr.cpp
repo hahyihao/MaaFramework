@@ -61,17 +61,21 @@ PipelineDataMap::const_iterator PipelineResMgr::lookup_with_bare_fallback(
     const PipelineDataMap& map,
     const std::string& raw)
 {
-    // 直接精确匹配（覆盖 FQN 引用 / 老路径无前缀场景）
+    // 1) 直接精确匹配（用户写 FQN / 同文件 qualify 后命中 / 老路径无前缀）
     auto direct = map.find(raw);
     if (direct != map.end()) {
         return direct;
     }
-    // raw 已含 "::"：FQN 失败就是失败，不再回退
-    if (raw.find("::") != std::string::npos) {
+    // 2) 取末段做 bare-name 全局唯一回退。
+    //    parser 会把 fallback_node / sub_pipeline / recognition_pipeline 等内部引用
+    //    无条件 qualify 成 "<本文件>::<裸名>"，因此即使 raw 含 "::"，也需要再 strip
+    //    末段做跨文件回退 — 否则跨文件 bare-name 引用永远失败。
+    auto pos = raw.rfind("::");
+    std::string bare = (pos == std::string::npos) ? raw : raw.substr(pos + 2);
+    if (bare.empty()) {
         return map.end();
     }
-    // 全局唯一回退：扫描所有 *::raw 候选
-    const std::string suffix = "::" + raw;
+    const std::string suffix = "::" + bare;
     PipelineDataMap::const_iterator hit = map.end();
     int hit_count = 0;
     for (auto it = map.begin(); it != map.end(); ++it) {
