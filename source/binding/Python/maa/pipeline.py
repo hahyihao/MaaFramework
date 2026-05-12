@@ -337,6 +337,7 @@ class JNodeAttr:
     name: str  # 必选
     jump_back: bool = False
     anchor: bool = False
+    is_fallback: bool = False
 
 
 @dataclass
@@ -369,6 +370,11 @@ class JPipelineData:
     repeat_delay: int = 0
     repeat_wait_freezes: Optional[JWaitFreezes] = None
     max_hit: int = 4294967295  # UINT_MAX
+    # Phase 1: loop_scan 相关
+    task_mode: str = "state_machine"
+    fallback_node: Optional[str] = None
+    cycle_delay: Union[int, List[int]] = 1000
+    cycle_delay_max: Optional[int] = None
     focus: Any = None
     attach: Dict = field(default_factory=dict)
 
@@ -492,11 +498,21 @@ class JPipelineParser:
         post_wait_freezes = cls._parse_wait_freezes(data.get("post_wait_freezes"))  # type: ignore
         repeat_wait_freezes = cls._parse_wait_freezes(data.get("repeat_wait_freezes"))  # type: ignore
 
+        # 解析 next：Dumper 把 fallback_node 放回 next 末尾，is_fallback=true 标记；这里抽出来。
+        next_list = cls._parse_node_attr_list(data.get("next"))
+        fallback_node = None
+        filtered_next: List[JNodeAttr] = []
+        for attr in next_list:
+            if attr.is_fallback and fallback_node is None:
+                fallback_node = attr.name
+            else:
+                filtered_next.append(attr)
+
         # Create JPipelineData with converted data
         return JPipelineData(
             recognition=recognition,
             action=action,
-            next=cls._parse_node_attr_list(data.get("next")),
+            next=filtered_next,
             rate_limit=data.get("rate_limit"),
             timeout=data.get("timeout"),
             on_error=cls._parse_node_attr_list(data.get("on_error")),
@@ -511,6 +527,10 @@ class JPipelineParser:
             repeat_delay=data.get("repeat_delay"),
             repeat_wait_freezes=repeat_wait_freezes,  # type: ignore
             max_hit=data.get("max_hit"),
+            task_mode=data.get("task_mode", "state_machine"),
+            fallback_node=fallback_node,
+            cycle_delay=data.get("cycle_delay", 1000),
+            cycle_delay_max=data.get("cycle_delay_max"),
             focus=data.get("focus"),
             attach=data.get("attach"),
         )
@@ -523,6 +543,7 @@ class JPipelineParser:
                 name=item.get("name"),
                 jump_back=item.get("jump_back", False),
                 anchor=item.get("anchor", False),
+                is_fallback=item.get("is_fallback", False),
             )
             for item in data
         ]
