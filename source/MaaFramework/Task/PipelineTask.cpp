@@ -320,6 +320,9 @@ NodeDetail PipelineTask::run_next(
             return data_opt && data_opt->name == hit_name;
         });
 
+        // 让 cur_node_ 反映真实命中节点，使 notify/log 中的 node 名是真实进度
+        cur_node_ = hit_name;
+
         auto act = run_action(reco, *hit_opt);
 
         for (const auto& [anchor, target] : hit_opt->anchor) {
