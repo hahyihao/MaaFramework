@@ -178,6 +178,72 @@ bool get_and_check_array_or_2darray(
     return !output.empty();
 }
 
+// Parse a duration field that accepts either a non-negative integer scalar
+// or a [min, max] array of non-negative integers with min <= max.
+// On scalar: out_min = value, out_max = 0.
+// On array of 1 element: out_min = arr[0], out_max = 0.
+// On array of 2 elements: out_min = arr[0], out_max = arr[1], asserts max >= min.
+// On missing key: out_min = default_min, out_max = default_max.
+static bool parse_duration_range(
+    const json::value& input,
+    const std::string& key,
+    std::chrono::milliseconds& out_min,
+    std::chrono::milliseconds& out_max,
+    std::chrono::milliseconds default_min,
+    std::chrono::milliseconds default_max)
+{
+    auto opt = input.find(key);
+    if (!opt) {
+        out_min = default_min;
+        out_max = default_max;
+        return true;
+    }
+
+    if (opt->is_array()) {
+        const auto& arr = opt->as_array();
+        if (arr.empty()) {
+            LogError << "duration range array is empty" << VAR(key) << VAR(input);
+            return false;
+        }
+        if (arr.size() > 2) {
+            LogError << "duration range array must have 1 or 2 elements" << VAR(key) << VAR(input);
+            return false;
+        }
+        for (const auto& e : arr) {
+            if (!e.is_number()) {
+                LogError << "duration range elements must be numbers" << VAR(key) << VAR(input);
+                return false;
+            }
+            if (e.as_integer() < 0) {
+                LogError << "duration range elements must be non-negative" << VAR(key) << VAR(input);
+                return false;
+            }
+        }
+        out_min = std::chrono::milliseconds(arr[0].as_integer());
+        out_max = arr.size() == 2
+                     ? std::chrono::milliseconds(arr[1].as_integer())
+                     : std::chrono::milliseconds(0);
+        if (out_max.count() > 0 && out_max < out_min) {
+            LogError << "duration range max < min" << VAR(key) << VAR(input);
+            return false;
+        }
+        return true;
+    }
+
+    if (opt->is_number()) {
+        if (opt->as_integer() < 0) {
+            LogError << "duration scalar must be non-negative" << VAR(key) << VAR(input);
+            return false;
+        }
+        out_min = std::chrono::milliseconds(opt->as_integer());
+        out_max = std::chrono::milliseconds(0);
+        return true;
+    }
+
+    LogError << "duration field must be a number or [min,max] array" << VAR(key) << VAR(input);
+    return false;
+}
+
 bool PipelineParser::parse_node(
     const std::string& name,
     const json::value& input,
@@ -275,12 +341,29 @@ bool PipelineParser::parse_node(
         return false;
     }
 
-    auto rate_limit = default_value.rate_limit.count();
-    if (!get_and_check_value(input, "rate_limit", rate_limit, rate_limit)) {
-        LogError << "failed to get_and_check_value rate_limit" << VAR(input);
+    // rate_limit 保留单值语义（截图轮询间隔）；数组写法仅解析 min 段，max 被忽略并告警。
+    // 若需要"循环间随机延迟"请使用 cycle_delay。
+    {
+        std::chrono::milliseconds rate_min = default_value.rate_limit;
+        std::chrono::milliseconds rate_max { 0 };
+        if (!parse_duration_range(input, "rate_limit", rate_min, rate_max,
+                                   default_value.rate_limit, std::chrono::milliseconds { 0 })) {
+            LogError << "failed to parse rate_limit" << VAR(input);
+            return false;
+        }
+        if (rate_max.count() > 0) {
+            LogWarn << "rate_limit ignores max element (use cycle_delay for jitter)" << VAR(input);
+        }
+        data.rate_limit = rate_min;
+    }
+
+    // loop_scan 模式下每轮循环结束的等待时长，支持 [min, max] 区间随机
+    if (!parse_duration_range(input, "cycle_delay",
+                              data.cycle_delay, data.cycle_delay_max,
+                              default_value.cycle_delay, default_value.cycle_delay_max)) {
+        LogError << "failed to parse cycle_delay" << VAR(input);
         return false;
     }
-    data.rate_limit = std::chrono::milliseconds(rate_limit);
 
     auto timeout = default_value.reco_timeout.count();
     if (!get_and_check_value(input, "timeout", timeout, timeout)) {
