@@ -462,6 +462,38 @@ RecoResult PipelineTask::recognize_list(const cv::Mat& image, const std::vector<
             continue;
         }
 
+        // SubPipeline reco：不走 Vision，递归调 execute_once 委托给子流水线
+        if (pipeline_data.reco_type == MAA_RES_NS::Recognition::Type::SubPipeline) {
+            const auto* sp = std::get_if<MAA_RES_NS::Recognition::SubPipelineParam>(&pipeline_data.reco_param);
+            if (!sp || sp->recognition_pipeline.empty()) {
+                LogError << "SubPipeline reco_param invalid" << VAR(pipeline_data.name);
+                continue;
+            }
+            LogInfo << "SubPipeline reco delegate"
+                    << VAR(pipeline_data.name) << VAR(sp->recognition_pipeline);
+
+            auto sub_result = execute_once(sp->recognition_pipeline, /*depth=*/ 1);
+            if (context_->need_to_stop()) {
+                LogWarn << "need_to_stop after SubPipeline";
+                break;
+            }
+            if (!sub_result.hit) {
+                continue;  // 子层全 miss → 本候选视为未命中，试下一个
+            }
+
+            // 命中：构造 RecoResult，box / detail 自子层上浮
+            RecoResult sp_result;
+            sp_result.reco_id = Recognizer::generate_reco_id();
+            sp_result.name = pipeline_data.name;
+            sp_result.algorithm = "SubPipeline";
+            sp_result.box = sub_result.hit_box;
+            sp_result.detail = sub_result.hit_detail;
+
+            context_->increment_hit_count(pipeline_data.name);
+            notify(MaaMsg_Node_NextList_Succeeded, reco_list_cb_detail);
+            return sp_result;
+        }
+
         auto anchor_name = node.anchor ? std::optional { node.name } : std::nullopt;
         RecoResult result = run_recognition(image, pipeline_data, std::move(anchor_name), ocr_cache);
 
