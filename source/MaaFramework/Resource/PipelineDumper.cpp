@@ -516,6 +516,9 @@ json::object PipelineDumper::dump(const PipelineData& pp)
         data.cycle_delay = json::value(pp.cycle_delay.count());
     }
 
+    // Phase 2: sub_pipeline
+    data.sub_pipeline = pp.sub_pipeline;
+
     return data.to_json().as_object();
 }
 
