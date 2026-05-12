@@ -4209,6 +4209,29 @@
                     "$ref": "#/$defs/jsonBooleanTrue",
                     "markdownDescription": "*bool*\n\n是否启用该 node。可选，默认 true 。\n\n若为 false，其他 node 的 next 列表中的该 node 会被跳过，既不会被识别也不会被执行。"
                 },
+                "task_mode": {
+                    "title": "Task Mode Property",
+                    "description": "任务执行模式。仅 entry 节点该字段起作用。可选，默认 'state_machine' 。",
+                    "type": "string",
+                    "enum": ["state_machine", "loop_scan"],
+                    "default": "state_machine",
+                    "markdownDescription": "*string*\n\n任务执行模式。仅 entry 节点该字段起作用。可选，默认 `state_machine` 。\n\n- `state_machine`：传统状态机，从 entry 出发沿 next 走，链走完任务结束。\n- `loop_scan`：循环扫描整条 next 链；命中执行 action 后下一轮重新扫；全失败走 `[Fallback]` 节点；永不主动结束，需外部 stop。"
+                },
+                "cycle_delay": {
+                    "title": "Cycle Delay Property",
+                    "description": "loop_scan 模式下每轮循环结束的等待时长，毫秒。可写为标量或 [min, max] 区间随机。可选，默认 1000 。",
+                    "oneOf": [
+                        { "$ref": "#/$defs/jsonNInt64" },
+                        {
+                            "type": "array",
+                            "items": { "$ref": "#/$defs/jsonNInt64" },
+                            "minItems": 1,
+                            "maxItems": 2
+                        }
+                    ],
+                    "default": 1000,
+                    "markdownDescription": "*uint* | *[uint, uint]*\n\nloop_scan 模式下每轮循环结束的等待时长，毫秒。可选，默认 1000 。\n\n- 标量 `1000`：固定 1000ms\n- 数组 `[800, 1500]`：每轮在 [800, 1500] ms 区间均匀随机"
+                },
                 "max_hit": {
                     "title": "Max Hit Property",
                     "description": "该节点最多可被识别成功多少次。可选，默认 UINT_MAX ，即无限制。",
