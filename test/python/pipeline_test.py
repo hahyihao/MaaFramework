@@ -203,6 +203,9 @@ class PipelineTestRecognition(CustomRecognition):
         # 8.5 测试 loop_scan 模式 / [Fallback] / cycle_delay 解析
         self._test_loop_scan_mode(context)
 
+        # 8.6 测试 sub_pipeline 字段解析
+        self._test_sub_pipeline_field(context)
+
         # 9. 测试 anchor 对象格式
         self._test_anchor_object_format(context)
 
@@ -1031,6 +1034,57 @@ class PipelineTestRecognition(CustomRecognition):
         assert_eq(ok, False, "override should reject empty cycle_delay array")
 
         print("    PASS: loop_scan mode + [Fallback] + cycle_delay")
+
+    def _test_sub_pipeline_field(self, context: Context):
+        """测试 sub_pipeline 字段解析"""
+        print("  Testing sub_pipeline field parsing...")
+
+        # 1. sub_pipeline 默认 None
+        new_ctx = context.clone()
+        new_ctx.override_pipeline(
+            {
+                "NoSub": {
+                    "recognition": "DirectHit",
+                    "action": "DoNothing",
+                }
+            }
+        )
+        obj = new_ctx.get_node_object("NoSub")
+        assert_eq(obj.sub_pipeline, None, "default sub_pipeline")
+
+        # 2. sub_pipeline 字段透传
+        new_ctx = context.clone()
+        new_ctx.override_pipeline(
+            {
+                "SubEntry": {
+                    "recognition": "DirectHit",
+                    "action": "DoNothing",
+                },
+                "Trigger": {
+                    "recognition": "DirectHit",
+                    "action": "DoNothing",
+                    "sub_pipeline": "SubEntry",
+                },
+            }
+        )
+        obj = new_ctx.get_node_object("Trigger")
+        assert_eq(obj.sub_pipeline, "SubEntry", "sub_pipeline preserved")
+
+        # 3. sub_pipeline 支持 FQN 形式（含 "::"）
+        new_ctx = context.clone()
+        new_ctx.override_pipeline(
+            {
+                "FqnTrigger": {
+                    "recognition": "DirectHit",
+                    "action": "DoNothing",
+                    "sub_pipeline": "battle/fight::entry",
+                },
+            }
+        )
+        obj = new_ctx.get_node_object("FqnTrigger")
+        assert_eq(obj.sub_pipeline, "battle/fight::entry", "sub_pipeline FQN preserved")
+
+        print("    PASS: sub_pipeline field")
 
     def _test_anchor_object_format(self, context: Context):
         print("  Testing anchor object format...")
