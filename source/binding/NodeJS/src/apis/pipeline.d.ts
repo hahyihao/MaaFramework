@@ -477,6 +477,8 @@ declare global {
             // Phase 1: loop_scan 相关
             task_mode?: 'state_machine' | 'loop_scan'
             cycle_delay?: number | [number, number]
+            // Phase 2: 子 pipeline 嵌套
+            sub_pipeline?: string
             focus?: unknown
             attach?: Record<string, unknown>
         }
