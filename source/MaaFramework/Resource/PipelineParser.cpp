@@ -230,6 +230,26 @@ bool PipelineParser::parse_node(
         return false;
     }
 
+    // 任务执行模式（仅 entry 节点起作用）
+    {
+        std::string task_mode_str;
+        if (!get_and_check_value(input, "task_mode", task_mode_str, std::string {})) {
+            LogError << "failed to get_and_check_value task_mode" << VAR(input);
+            return false;
+        }
+        if (task_mode_str.empty() || task_mode_str == "state_machine") {
+            data.task_mode = TaskMode::StateMachine;
+        }
+        else if (task_mode_str == "loop_scan") {
+            data.task_mode = TaskMode::LoopScan;
+        }
+        else {
+            LogError << "invalid task_mode value (expected 'state_machine' or 'loop_scan')"
+                     << VAR(task_mode_str) << VAR(input);
+            return false;
+        }
+    }
+
     if (!parse_recognition(input, data.reco_type, data.reco_param, default_value.reco_type, default_value.reco_param, default_mgr)) {
         LogError << "failed to parse_recognition" << VAR(input);
         return false;
