@@ -472,6 +472,13 @@ json::object PipelineDumper::dump(const PipelineData& pp)
     PipelineV2::JPipelineData data;
 
     data.next = pp.next;
+    // 把 fallback_node 还原回 next 末尾的 [Fallback] 项（与 parser 解析的逆操作）
+    if (pp.fallback_node) {
+        data.next.push_back(NodeAttr {
+            .name = *pp.fallback_node,
+            .is_fallback = true,
+        });
+    }
     data.rate_limit = pp.rate_limit.count();
     data.timeout = pp.reco_timeout.count();
     data.on_error = pp.on_error;
@@ -494,6 +501,20 @@ json::object PipelineDumper::dump(const PipelineData& pp)
 
     data.max_hit = pp.max_hit;
     data.attach = pp.attach;
+
+    // task_mode
+    data.task_mode = (pp.task_mode == TaskMode::LoopScan) ? "loop_scan" : "state_machine";
+
+    // cycle_delay：cycle_delay_max > 0 时 dump 为 [min, max] 数组，否则单值
+    if (pp.cycle_delay_max.count() > 0) {
+        data.cycle_delay = json::array {
+            pp.cycle_delay.count(),
+            pp.cycle_delay_max.count(),
+        };
+    }
+    else {
+        data.cycle_delay = json::value(pp.cycle_delay.count());
+    }
 
     return data.to_json().as_object();
 }
