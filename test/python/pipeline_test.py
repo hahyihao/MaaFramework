@@ -209,6 +209,9 @@ class PipelineTestRecognition(CustomRecognition):
         # 8.6 测试 sub_pipeline 字段解析
         self._test_sub_pipeline_field(context)
 
+        # 8.7 测试 SubPipeline recognition 类型 + recognition_pipeline 字段（Phase 3）
+        self._test_sub_pipeline_recognition(context)
+
         # 9. 测试 anchor 对象格式
         self._test_anchor_object_format(context)
 
@@ -1088,6 +1091,61 @@ class PipelineTestRecognition(CustomRecognition):
         assert_eq(obj.sub_pipeline, "battle/fight::entry", "sub_pipeline FQN preserved")
 
         print("    PASS: sub_pipeline field")
+
+    def _test_sub_pipeline_recognition(self, context: Context):
+        """测试 recognition: SubPipeline + recognition_pipeline 字段解析（Phase 3）"""
+        print("  Testing SubPipeline recognition type + recognition_pipeline...")
+
+        # 1. recognition: SubPipeline 能正确解析，节点顶层 recognition_pipeline 字段透传
+        new_ctx = context.clone()
+        new_ctx.override_pipeline(
+            {
+                "HomeEntry": {
+                    "recognition": "DirectHit",
+                    "action": "DoNothing",
+                },
+                "TryHome": {
+                    "recognition": "SubPipeline",
+                    "recognition_pipeline": "HomeEntry",
+                    "action": "DoNothing",
+                },
+            }
+        )
+        obj = new_ctx.get_node_object("TryHome")
+        assert obj is not None, "TryHome should exist"
+        assert_eq(obj.recognition.type, "SubPipeline", "recognition.type SubPipeline")
+        assert_eq(obj.recognition_pipeline, "HomeEntry", "recognition_pipeline preserved")
+
+        # 2. recognition_pipeline 支持 FQN 形式
+        new_ctx = context.clone()
+        new_ctx.override_pipeline(
+            {
+                "FqnTrySub": {
+                    "recognition": "SubPipeline",
+                    "recognition_pipeline": "battle/fight::HomeEntry",
+                    "action": "DoNothing",
+                },
+            }
+        )
+        obj = new_ctx.get_node_object("FqnTrySub")
+        assert obj is not None, "FqnTrySub should exist"
+        assert_eq(obj.recognition_pipeline, "battle/fight::HomeEntry", "recognition_pipeline FQN preserved")
+
+        # 3. 默认无 recognition_pipeline 字段时 None
+        new_ctx = context.clone()
+        new_ctx.override_pipeline(
+            {
+                "NoSubReco": {
+                    "recognition": "DirectHit",
+                    "action": "DoNothing",
+                }
+            }
+        )
+        obj = new_ctx.get_node_object("NoSubReco")
+        assert obj is not None, "NoSubReco should exist"
+        assert_eq(obj.recognition_pipeline, None, "default recognition_pipeline None")
+
+        print("    PASS: SubPipeline recognition + recognition_pipeline field")
 
     def _test_anchor_object_format(self, context: Context):
         print("  Testing anchor object format...")
