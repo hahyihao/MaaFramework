@@ -270,6 +270,13 @@ PipelineV2::JRecognition PipelineDumper::dump_reco(Recognition::Type type, const
         };
     } break;
 
+    case Recognition::Type::SubPipeline: {
+        const auto& p = std::get<Recognition::SubPipelineParam>(param);
+        reco.param = PipelineV2::JSubPipelineRecognition {
+            .recognition_pipeline = p.recognition_pipeline,
+        };
+    } break;
+
     default:
         LogError << "Invalid recognition type" << VAR(type);
         return { };

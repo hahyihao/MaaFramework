@@ -122,6 +122,14 @@ struct JCustomRecognition
     MEO_TOJSON(roi, roi_offset, custom_recognition, custom_recognition_param);
 };
 
+// Phase 3: SubPipeline reco — delegate the recognition phase to a sub-pipeline entry node
+struct JSubPipelineRecognition
+{
+    std::string recognition_pipeline;
+
+    MEO_TOJSON(recognition_pipeline);
+};
+
 struct JSubRecognition;
 
 // Sub-recognition element: either a node name (string) or inline recognition (object)
@@ -152,7 +160,8 @@ using JRecognitionParam = std::variant<
     JNeuralNetworkDetect,
     JAnd,
     JOr,
-    JCustomRecognition>;
+    JCustomRecognition,
+    JSubPipelineRecognition>;
 
 struct JRecognition
 {
