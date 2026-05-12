@@ -14,6 +14,7 @@ bool PipelineChecker::check_all_validity(const PipelineDataMap& data_map)
 {
     bool ret = check_all_next_list(data_map);
     ret &= check_all_regex(data_map);
+    ret &= check_all_recognition_pipeline(data_map);
 
     return ret;
 }
@@ -63,6 +64,30 @@ bool PipelineChecker::check_next_list(const std::vector<NodeAttr>& next_list, co
         // 支持裸名查找：先精确匹配，再全局唯一回退
         if (PipelineResMgr::lookup_with_bare_fallback(data_map, node.name) == data_map.end()) {
             LogError << "Invalid next node name" << VAR(node.name);
+            return false;
+        }
+    }
+    return true;
+}
+
+bool PipelineChecker::check_all_recognition_pipeline(const PipelineDataMap& data_map)
+{
+    for (const auto& [name, pipeline_data] : data_map) {
+        if (pipeline_data.reco_type != Recognition::Type::SubPipeline) {
+            continue;
+        }
+        const auto* sp = std::get_if<Recognition::SubPipelineParam>(&pipeline_data.reco_param);
+        if (!sp) {
+            LogError << "SubPipeline reco_param missing" << VAR(name);
+            return false;
+        }
+        if (sp->recognition_pipeline.empty()) {
+            LogError << "SubPipeline recognition_pipeline is empty" << VAR(name);
+            return false;
+        }
+        if (PipelineResMgr::lookup_with_bare_fallback(data_map, sp->recognition_pipeline) == data_map.end()) {
+            LogError << "Invalid recognition_pipeline reference"
+                     << VAR(name) << VAR(sp->recognition_pipeline);
             return false;
         }
     }
