@@ -132,26 +132,11 @@ bool PipelineTask::run_loop_scan(const std::string& entry)
     }
     const auto entry_data = *entry_data_opt;
 
-    auto chain = build_chain(entry);
-    if (chain.empty()) {
-        LogError << "run_loop_scan: empty chain" << VAR(entry);
-        return false;
-    }
-
     while (!context_->need_to_stop()) {
-        cur_node_ = entry;
-        auto hit = run_next(chain, entry_data, ScanOptions { .single_pass = true });
+        execute_once(entry, /*depth=*/ 0);
 
         if (context_->need_to_stop()) {
             return true;
-        }
-
-        if (hit.reco_id != MaaInvalidId && hit.completed) {
-            // 命中并执行成功：什么都不需要额外做
-            // （Phase 2 将在此处加 sub_pipeline 递归调用）
-        }
-        else if (entry_data.fallback_node) {
-            run_fallback(*entry_data.fallback_node);
         }
 
         std::this_thread::sleep_for(
@@ -159,6 +144,49 @@ bool PipelineTask::run_loop_scan(const std::string& entry)
     }
 
     return true;
+}
+
+void PipelineTask::execute_once(const std::string& pipeline_entry, int depth)
+{
+    if (depth > kMaxNestingDepth) {
+        LogError << "max nesting depth exceeded"
+                 << VAR(pipeline_entry) << VAR(depth) << VAR(kMaxNestingDepth);
+        return;
+    }
+
+    auto entry_data_opt = context_->get_pipeline_data(pipeline_entry);
+    if (!entry_data_opt) {
+        LogError << "execute_once: entry not found" << VAR(pipeline_entry);
+        return;
+    }
+    const auto entry_data = *entry_data_opt;
+
+    cur_node_ = pipeline_entry;
+    auto chain = build_chain(pipeline_entry);
+    if (chain.empty()) {
+        LogWarn << "execute_once: empty chain" << VAR(pipeline_entry);
+        return;
+    }
+
+    auto hit = run_next(chain, entry_data, ScanOptions { .single_pass = true });
+
+    if (context_->need_to_stop()) {
+        return;
+    }
+
+    if (hit.reco_id != MaaInvalidId && hit.completed) {
+        // 命中成功后，若命中节点声明了 sub_pipeline，递归进入子层
+        auto hit_data_opt = context_->get_pipeline_data(hit.name);
+        if (hit_data_opt && hit_data_opt->sub_pipeline) {
+            LogInfo << "entering sub_pipeline"
+                    << VAR(hit.name) << VAR(*hit_data_opt->sub_pipeline) << VAR(depth);
+            execute_once(*hit_data_opt->sub_pipeline, depth + 1);
+        }
+    }
+    else if (entry_data.fallback_node) {
+        run_fallback(*entry_data.fallback_node);
+    }
+    // 不论命中 / 兜底 / 无果，本层执行完一件事即返回上一层
 }
 
 std::vector<MAA_RES_NS::NodeAttr> PipelineTask::build_chain(const std::string& entry)

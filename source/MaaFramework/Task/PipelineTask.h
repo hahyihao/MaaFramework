@@ -47,8 +47,13 @@ private:
     };
 
 private:
+    static constexpr int kMaxNestingDepth = 8;
+
     bool run_state_machine(const std::string& entry);
     bool run_loop_scan(const std::string& entry);
+
+    // 单次穿透：扫一帧本层链 → 命中 action + 可选递归进入 sub_pipeline → 返回上一层
+    void execute_once(const std::string& pipeline_entry, int depth);
 
     std::vector<MAA_RES_NS::NodeAttr> build_chain(const std::string& entry);
     void run_fallback(const std::string& fallback_node_name);
