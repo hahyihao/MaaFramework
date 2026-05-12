@@ -50,6 +50,12 @@ private:
     bool run_state_machine(const std::string& entry);
     bool run_loop_scan(const std::string& entry);
 
+    std::vector<MAA_RES_NS::NodeAttr> build_chain(const std::string& entry);
+    void run_fallback(const std::string& fallback_node_name);
+    static std::chrono::milliseconds sample_delay(
+        std::chrono::milliseconds min_ms,
+        std::chrono::milliseconds max_ms);
+
     struct ScanOptions
     {
         bool single_pass = false;

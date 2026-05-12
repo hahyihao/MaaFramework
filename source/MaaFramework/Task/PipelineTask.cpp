@@ -1,5 +1,6 @@
 #include "PipelineTask.h"
 
+#include <random>
 #include <stack>
 
 #include "Component/Recognizer.h"
@@ -124,8 +125,89 @@ bool PipelineTask::run_state_machine(const std::string& entry)
 
 bool PipelineTask::run_loop_scan(const std::string& entry)
 {
-    LogInfo << "run_loop_scan (stub, real implementation in next commit)" << VAR(entry);
+    auto entry_data_opt = context_->get_pipeline_data(entry);
+    if (!entry_data_opt) {
+        LogError << "run_loop_scan: entry not found" << VAR(entry);
+        return false;
+    }
+    const auto entry_data = *entry_data_opt;
+
+    auto chain = build_chain(entry);
+    if (chain.empty()) {
+        LogError << "run_loop_scan: empty chain" << VAR(entry);
+        return false;
+    }
+
+    while (!context_->need_to_stop()) {
+        cur_node_ = entry;
+        auto hit = run_next(chain, entry_data, ScanOptions { .single_pass = true });
+
+        if (context_->need_to_stop()) {
+            return true;
+        }
+
+        if (hit.reco_id != MaaInvalidId && hit.completed) {
+            // 命中并执行成功：什么都不需要额外做
+            // （Phase 2 将在此处加 sub_pipeline 递归调用）
+        }
+        else if (entry_data.fallback_node) {
+            run_fallback(*entry_data.fallback_node);
+        }
+
+        std::this_thread::sleep_for(
+            sample_delay(entry_data.cycle_delay, entry_data.cycle_delay_max));
+    }
+
     return true;
+}
+
+std::vector<MAA_RES_NS::NodeAttr> PipelineTask::build_chain(const std::string& entry)
+{
+    auto data_opt = context_->get_pipeline_data(entry);
+    if (!data_opt) {
+        LogError << "build_chain: entry not found" << VAR(entry);
+        return {};
+    }
+    // entry 节点的 next 中，[Fallback] 节点已经在 parse 期被提取到 fallback_node 字段
+    return data_opt->next;
+}
+
+void PipelineTask::run_fallback(const std::string& fallback_node_name)
+{
+    auto data_opt = context_->get_pipeline_data(fallback_node_name);
+    if (!data_opt) {
+        LogWarn << "fallback node not found" << VAR(fallback_node_name);
+        return;
+    }
+
+    cur_node_ = fallback_node_name;
+
+    LogInfo << "run_fallback" << VAR(fallback_node_name);
+
+    // 兜底节点单独走识别 + 动作流程
+    cv::Mat image = screencap();
+    if (image.empty()) {
+        LogWarn << "fallback screencap empty";
+        return;
+    }
+
+    RecoResult reco = run_recognition(image, *data_opt, std::nullopt, nullptr);
+    if (reco.box) {
+        run_action(reco, *data_opt);
+    }
+}
+
+std::chrono::milliseconds PipelineTask::sample_delay(
+    std::chrono::milliseconds min_ms,
+    std::chrono::milliseconds max_ms)
+{
+    if (max_ms.count() <= 0 || max_ms <= min_ms) {
+        return min_ms;
+    }
+    static thread_local std::mt19937 rng(
+        static_cast<uint32_t>(std::chrono::steady_clock::now().time_since_epoch().count()));
+    std::uniform_int_distribution<int64_t> dist(min_ms.count(), max_ms.count());
+    return std::chrono::milliseconds(dist(rng));
 }
 
 void PipelineTask::post_stop()
@@ -140,7 +222,7 @@ void PipelineTask::post_stop()
 NodeDetail PipelineTask::run_next(
     const std::vector<MAA_RES_NS::NodeAttr>& next,
     const PipelineData& pretask,
-    ScanOptions /*opts*/)
+    ScanOptions opts)
 {
     if (!context_) {
         LogError << "context is null";
@@ -193,6 +275,9 @@ NodeDetail PipelineTask::run_next(
 
         if (image.empty()) {
             LogWarn << "screencap failed, skip recognition" << VAR(pretask.name);
+            if (opts.single_pass) {
+                break;  // single_pass：截图失败也算本帧结束，走 fallthrough 返回 completed=false
+            }
             if (!check_timeout_and_sleep(current_clock)) {
                 break;
             }
@@ -207,6 +292,9 @@ NodeDetail PipelineTask::run_next(
         }
 
         if (!reco.box) {
+            if (opts.single_pass) {
+                break;  // single_pass：本帧未命中即返回 completed=false
+            }
             if (!check_timeout_and_sleep(current_clock)) {
                 break;
             }
