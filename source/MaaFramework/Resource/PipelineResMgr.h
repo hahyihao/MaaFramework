@@ -23,6 +23,14 @@ public:
     bool load_file(const std::filesystem::path& path, const DefaultPipelineMgr& default_mgr);
     void clear();
 
+    // Phase 2: 把 JSON 文件路径转换为命名空间前缀
+    // 例如 pipeline_root=<bundle>/pipeline, json_file=<bundle>/pipeline/battle/fight.json
+    //   → "battle/fight"
+    // pipeline_root 为空 / json_file 不在其下时返回空串（兼容老路径）
+    static std::string compute_fqn_prefix(
+        const std::filesystem::path& json_file,
+        const std::filesystem::path& pipeline_root);
+
     const std::vector<std::filesystem::path>& get_paths() const { return paths_; }
 
     const PipelineDataMap& get_pipeline_data_map() const { return pipeline_data_map_; }

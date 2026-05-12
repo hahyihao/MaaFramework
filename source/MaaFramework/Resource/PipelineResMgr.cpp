@@ -57,6 +57,27 @@ void PipelineResMgr::clear()
     paths_.clear();
 }
 
+std::string PipelineResMgr::compute_fqn_prefix(
+    const std::filesystem::path& json_file,
+    const std::filesystem::path& pipeline_root)
+{
+    if (pipeline_root.empty()) {
+        return {};
+    }
+    std::error_code ec;
+    auto rel = std::filesystem::relative(json_file, pipeline_root, ec);
+    if (ec || rel.empty()) {
+        return {};
+    }
+    rel.replace_extension();  // 去掉 .json 后缀
+    auto s = rel.generic_string();
+    // 不在 root 下时 relative 会返回 ".." 开头的路径：回退到无命名空间
+    if (s.starts_with("..")) {
+        return {};
+    }
+    return s;
+}
+
 bool PipelineResMgr::load_all_json(const std::filesystem::path& path, const DefaultPipelineMgr& default_mgr)
 {
     if (!std::filesystem::is_directory(path)) {
