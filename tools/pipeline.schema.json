@@ -1552,7 +1552,8 @@
                 "NeuralNetworkDetect",
                 "And",
                 "Or",
-                "Custom"
+                "Custom",
+                "SubPipeline"
             ]
         },
         "RecognitionPropertyFields": {
@@ -4237,6 +4238,12 @@
                     "description": "命中本节点后递归进入的子 pipeline 入口节点名（仅 loop_scan 模式下生效）。可选，默认空。",
                     "type": "string",
                     "markdownDescription": "*string*\n\n命中本节点后递归进入的子 pipeline 入口节点名（仅 loop_scan 模式下生效）。可选，默认空。\n\n子层执行**单次穿透**：扫一帧子层 chain → 命中 action / 全失败走子层兜底 → 返回上一层。\n\n最大递归深度 8 层，超过即放弃当前递归并打日志。"
+                },
+                "recognition_pipeline": {
+                    "title": "Recognition Pipeline Property",
+                    "description": "当 recognition 为 SubPipeline 时，委托识别给该子流水线 entry 节点。可选，默认空。",
+                    "type": "string",
+                    "markdownDescription": "*string*\n\n当 `recognition` 为 `SubPipeline` 时，**委托识别**给该子流水线 entry 节点。可选，默认空。\n\n子层任一节点命中 → 本节点视为命中（命中节点的 box 上浮）；子层全 miss → 本节点视为 miss。子层 single-pass 执行。\n\n语义与 `sub_pipeline` 字段不同：`sub_pipeline` 是「命中后调子例程」，`recognition_pipeline` 是「在 reco 阶段委托识别」。"
                 },
                 "max_hit": {
                     "title": "Max Hit Property",
