@@ -2,6 +2,7 @@
 
 #include <array>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -383,6 +384,8 @@ struct JPipelineData
     // Phase 1: loop_scan 模式字段
     std::string task_mode = "state_machine";
     json::value cycle_delay = int64_t { 1000 };  // 可为整数或 [min, max]
+    // Phase 2: 子 pipeline 递归调用
+    std::optional<std::string> sub_pipeline;
     json::value focus;
     json::object attach;
 
@@ -406,6 +409,7 @@ struct JPipelineData
         max_hit,
         task_mode,
         cycle_delay,
+        sub_pipeline,
         focus,
         attach);
 };

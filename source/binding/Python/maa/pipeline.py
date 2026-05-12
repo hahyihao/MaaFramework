@@ -375,6 +375,8 @@ class JPipelineData:
     fallback_node: Optional[str] = None
     cycle_delay: Union[int, List[int]] = 1000
     cycle_delay_max: Optional[int] = None
+    # Phase 2: 子 pipeline 递归调用
+    sub_pipeline: Optional[str] = None
     focus: Any = None
     attach: Dict = field(default_factory=dict)
 
@@ -531,6 +533,7 @@ class JPipelineParser:
             fallback_node=fallback_node,
             cycle_delay=data.get("cycle_delay", 1000),
             cycle_delay_max=data.get("cycle_delay_max"),
+            sub_pipeline=data.get("sub_pipeline"),
             focus=data.get("focus"),
             attach=data.get("attach"),
         )

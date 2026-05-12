@@ -406,6 +406,9 @@ struct PipelineData
     std::chrono::milliseconds cycle_delay { 1000 };
     std::chrono::milliseconds cycle_delay_max { 0 };
 
+    // Phase 2: 命中本节点后递归进入的子 pipeline 入口节点（loop_scan 模式下递归调用）
+    std::optional<std::string> sub_pipeline;
+
     json::value focus;
     json::object attach;
 };
