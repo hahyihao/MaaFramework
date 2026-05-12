@@ -162,6 +162,14 @@ declare global {
             Mode
         >
 
+        type RecognitionSubPipeline<Mode> = RequiredIfStrict<
+            {
+                recognition_pipeline?: string
+            },
+            'recognition_pipeline',
+            Mode
+        >
+
         type MixReco<Type extends string, Param, Mode> =
             | {
                   recognition: {
@@ -187,6 +195,7 @@ declare global {
             | 'And'
             | 'Or'
             | 'Custom'
+            | 'SubPipeline'
 
         type Recognition<Mode> =
             | RemoveIfDump<
@@ -208,6 +217,7 @@ declare global {
             | MixReco<'And', RecognitionAnd<Mode>, Mode>
             | MixReco<'Or', RecognitionOr<Mode>, Mode>
             | MixReco<'Custom', RecognitionCustom<Mode>, Mode>
+            | MixReco<'SubPipeline', RecognitionSubPipeline<Mode>, Mode>
 
         type ActionDoNothing = {}
 
