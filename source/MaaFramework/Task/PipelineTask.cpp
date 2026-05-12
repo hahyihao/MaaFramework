@@ -489,6 +489,10 @@ RecoResult PipelineTask::recognize_list(const cv::Mat& image, const std::vector<
             sp_result.box = sub_result.hit_box;
             sp_result.detail = sub_result.hit_detail;
 
+            // 把 RecoResult 登记到 runtime_cache，便于 custom action callback
+            // 通过 reco_id 反查 reco_detail（与 Vision 路径行为一致）
+            tasker_->runtime_cache().set_reco_detail(sp_result.reco_id, sp_result);
+
             context_->increment_hit_count(pipeline_data.name);
             notify(MaaMsg_Node_NextList_Succeeded, reco_list_cb_detail);
             return sp_result;
