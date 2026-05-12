@@ -380,6 +380,9 @@ struct JPipelineData
     int64_t repeat_delay = 0;
     JWaitFreezes repeat_wait_freezes;
     uint32_t max_hit = 0;
+    // Phase 1: loop_scan 模式字段
+    std::string task_mode = "state_machine";
+    json::value cycle_delay = int64_t { 1000 };  // 可为整数或 [min, max]
     json::value focus;
     json::object attach;
 
@@ -401,6 +404,8 @@ struct JPipelineData
         repeat_delay,
         repeat_wait_freezes,
         max_hit,
+        task_mode,
+        cycle_delay,
         focus,
         attach);
 };
