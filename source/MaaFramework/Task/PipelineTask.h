@@ -49,11 +49,26 @@ private:
 private:
     static constexpr int kMaxNestingDepth = 8;
 
+    struct ExecOnceResult
+    {
+        bool hit = false;
+        std::optional<cv::Rect> hit_box;
+        json::value hit_detail;
+    };
+
+    struct RunNextResult
+    {
+        NodeDetail node_detail;
+        std::optional<cv::Rect> reco_box;
+        json::value reco_detail;
+    };
+
     bool run_state_machine(const std::string& entry);
     bool run_loop_scan(const std::string& entry);
 
     // 单次穿透：扫一帧本层链 → 命中 action + 可选递归进入 sub_pipeline → 返回上一层
-    void execute_once(const std::string& pipeline_entry, int depth);
+    // 返回 hit/miss + 命中节点的 box（供 SubPipeline reco 上浮）
+    ExecOnceResult execute_once(const std::string& pipeline_entry, int depth);
 
     std::vector<MAA_RES_NS::NodeAttr> build_chain(const std::string& entry);
     void run_fallback(const std::string& fallback_node_name);
@@ -66,7 +81,7 @@ private:
         bool single_pass = false;
     };
 
-    NodeDetail run_next(
+    RunNextResult run_next(
         const std::vector<MAA_RES_NS::NodeAttr>& next,
         const PipelineData& pretask,
         ScanOptions opts = {});

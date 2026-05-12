@@ -59,7 +59,8 @@ bool PipelineTask::run_state_machine(const std::string& entry)
 
     while (!next.empty() && !context_->need_to_stop()) {
         cur_node_ = node.name;
-        auto node_detail = run_next(next, node);
+        auto run_result = run_next(next, node);
+        const auto& node_detail = run_result.node_detail;
 
         if (context_->need_to_stop()) {
             LogWarn << "need_to_stop" << VAR(node.name);
@@ -133,7 +134,7 @@ bool PipelineTask::run_loop_scan(const std::string& entry)
     const auto entry_data = *entry_data_opt;
 
     while (!context_->need_to_stop()) {
-        execute_once(entry, /*depth=*/ 0);
+        (void)execute_once(entry, /*depth=*/ 0);
 
         if (context_->need_to_stop()) {
             return true;
@@ -146,18 +147,20 @@ bool PipelineTask::run_loop_scan(const std::string& entry)
     return true;
 }
 
-void PipelineTask::execute_once(const std::string& pipeline_entry, int depth)
+PipelineTask::ExecOnceResult PipelineTask::execute_once(const std::string& pipeline_entry, int depth)
 {
+    ExecOnceResult result;
+
     if (depth > kMaxNestingDepth) {
         LogError << "max nesting depth exceeded"
                  << VAR(pipeline_entry) << VAR(depth) << VAR(kMaxNestingDepth);
-        return;
+        return result;
     }
 
     auto entry_data_opt = context_->get_pipeline_data(pipeline_entry);
     if (!entry_data_opt) {
         LogError << "execute_once: entry not found" << VAR(pipeline_entry);
-        return;
+        return result;
     }
     const auto entry_data = *entry_data_opt;
 
@@ -165,28 +168,34 @@ void PipelineTask::execute_once(const std::string& pipeline_entry, int depth)
     auto chain = build_chain(pipeline_entry);
     if (chain.empty()) {
         LogWarn << "execute_once: empty chain" << VAR(pipeline_entry);
-        return;
+        return result;
     }
 
-    auto hit = run_next(chain, entry_data, ScanOptions { .single_pass = true });
+    auto run_result = run_next(chain, entry_data, ScanOptions { .single_pass = true });
+    const auto& hit = run_result.node_detail;
 
     if (context_->need_to_stop()) {
-        return;
+        return result;
     }
 
     if (hit.reco_id != MaaInvalidId && hit.completed) {
+        result.hit = true;
+        result.hit_box = run_result.reco_box;
+        result.hit_detail = run_result.reco_detail;
+
         // 命中成功后，若命中节点声明了 sub_pipeline，递归进入子层
         auto hit_data_opt = context_->get_pipeline_data(hit.name);
         if (hit_data_opt && hit_data_opt->sub_pipeline) {
             LogInfo << "entering sub_pipeline"
                     << VAR(hit.name) << VAR(*hit_data_opt->sub_pipeline) << VAR(depth);
-            execute_once(*hit_data_opt->sub_pipeline, depth + 1);
+            (void)execute_once(*hit_data_opt->sub_pipeline, depth + 1);
         }
     }
     else if (entry_data.fallback_node) {
         run_fallback(*entry_data.fallback_node);
     }
     // 不论命中 / 兜底 / 无果，本层执行完一件事即返回上一层
+    return result;
 }
 
 std::vector<MAA_RES_NS::NodeAttr> PipelineTask::build_chain(const std::string& entry)
@@ -247,7 +256,7 @@ void PipelineTask::post_stop()
     context_->need_to_stop() = true;
 }
 
-NodeDetail PipelineTask::run_next(
+PipelineTask::RunNextResult PipelineTask::run_next(
     const std::vector<MAA_RES_NS::NodeAttr>& next,
     const PipelineData& pretask,
     ScanOptions opts)
@@ -357,7 +366,7 @@ NodeDetail PipelineTask::run_next(
             context_->set_anchor(anchor, target);
         }
 
-        NodeDetail result {
+        NodeDetail node_detail {
             .node_id = node_id,
             .name = hit_name,
             .reco_id = reco.reco_id,
@@ -366,28 +375,32 @@ NodeDetail PipelineTask::run_next(
             .jump_back = jump_back,
         };
 
-        LogInfo << "PipelineTask node done" << VAR(result) << VAR(task_id_);
-        set_node_detail(result.node_id, result);
+        LogInfo << "PipelineTask node done" << VAR(node_detail) << VAR(task_id_);
+        set_node_detail(node_detail.node_id, node_detail);
 
-        node_cb_detail["node_details"] = result;
+        node_cb_detail["node_details"] = node_detail;
         node_cb_detail["reco_details"] = reco;
         node_cb_detail["action_details"] = act;
 
         notify(act.success ? MaaMsg_Node_PipelineNode_Succeeded : MaaMsg_Node_PipelineNode_Failed, node_cb_detail);
 
-        return result;
+        return RunNextResult {
+            .node_detail = node_detail,
+            .reco_box = reco.box,
+            .reco_detail = reco.detail,
+        };
     }
 
-    NodeDetail result {
+    NodeDetail node_detail {
         .node_id = node_id,
         .completed = false,
     };
-    LogWarn << "PipelineTask bad next" << VAR(result) << VAR(task_id_);
-    set_node_detail(result.node_id, result);
+    LogWarn << "PipelineTask bad next" << VAR(node_detail) << VAR(task_id_);
+    set_node_detail(node_detail.node_id, node_detail);
 
     notify(MaaMsg_Node_PipelineNode_Failed, node_cb_detail);
 
-    return result;
+    return RunNextResult { .node_detail = node_detail };
 }
 
 RecoResult PipelineTask::recognize_list(const cv::Mat& image, const std::vector<MAA_RES_NS::NodeAttr>& list)
