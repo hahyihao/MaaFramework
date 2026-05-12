@@ -25,17 +25,34 @@ bool PipelineTask::run()
 
     LogFunc << VAR(entry_) << VAR(task_id_);
 
-    std::stack<std::string> jumpback_stack;
-
-    // there is no pretask for the entry, so we use the entry itself
     auto begin_opt = context_->get_pipeline_data(entry_);
     if (!begin_opt) {
         LogError << "get_pipeline_data failed, task not exist" << VAR(entry_);
         return false;
     }
 
+    switch (begin_opt->task_mode) {
+    case MAA_RES_NS::TaskMode::LoopScan:
+        return run_loop_scan(entry_);
+    case MAA_RES_NS::TaskMode::StateMachine:
+    default:
+        return run_state_machine(entry_);
+    }
+}
+
+bool PipelineTask::run_state_machine(const std::string& entry)
+{
+    std::stack<std::string> jumpback_stack;
+
+    // there is no pretask for the entry, so we use the entry itself
+    auto begin_opt = context_->get_pipeline_data(entry);
+    if (!begin_opt) {
+        LogError << "get_pipeline_data failed, task not exist" << VAR(entry);
+        return false;
+    }
+
     PipelineData node = std::move(*begin_opt);
-    std::vector<MAA_RES_NS::NodeAttr> next = { { .name = entry_ } };
+    std::vector<MAA_RES_NS::NodeAttr> next = { { .name = entry } };
 
     bool error_handling = false;
 
@@ -105,6 +122,12 @@ bool PipelineTask::run()
     return !error_handling;
 }
 
+bool PipelineTask::run_loop_scan(const std::string& entry)
+{
+    LogInfo << "run_loop_scan (stub, real implementation in next commit)" << VAR(entry);
+    return true;
+}
+
 void PipelineTask::post_stop()
 {
     if (!context_) {
@@ -114,7 +137,10 @@ void PipelineTask::post_stop()
     context_->need_to_stop() = true;
 }
 
-NodeDetail PipelineTask::run_next(const std::vector<MAA_RES_NS::NodeAttr>& next, const PipelineData& pretask)
+NodeDetail PipelineTask::run_next(
+    const std::vector<MAA_RES_NS::NodeAttr>& next,
+    const PipelineData& pretask,
+    ScanOptions /*opts*/)
 {
     if (!context_) {
         LogError << "context is null";

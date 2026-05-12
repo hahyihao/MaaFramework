@@ -47,7 +47,18 @@ private:
     };
 
 private:
-    NodeDetail run_next(const std::vector<MAA_RES_NS::NodeAttr>& next, const PipelineData& pretask);
+    bool run_state_machine(const std::string& entry);
+    bool run_loop_scan(const std::string& entry);
+
+    struct ScanOptions
+    {
+        bool single_pass = false;
+    };
+
+    NodeDetail run_next(
+        const std::vector<MAA_RES_NS::NodeAttr>& next,
+        const PipelineData& pretask,
+        ScanOptions opts = {});
     RecoResult recognize_list(const cv::Mat& image, const std::vector<MAA_RES_NS::NodeAttr>& list);
     std::optional<BatchOCRPlan> prepare_batch_ocr(const std::vector<MAA_RES_NS::NodeAttr>& list);
 
