@@ -4,6 +4,7 @@
 #include <limits>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <variant>
@@ -348,13 +349,20 @@ struct WaitFreezesParam
     std::chrono::milliseconds timeout = std::chrono::milliseconds(20 * 1000);
 };
 
+enum class TaskMode
+{
+    StateMachine = 0,
+    LoopScan = 1,
+};
+
 struct NodeAttr
 {
     std::string name;
     bool jump_back = false;
     bool anchor = false;
+    bool is_fallback = false;
 
-    MEO_JSONIZATION(name, MEO_OPT jump_back, MEO_OPT anchor);
+    MEO_JSONIZATION(name, MEO_OPT jump_back, MEO_OPT anchor, MEO_OPT is_fallback);
 };
 
 struct PipelineData
@@ -362,6 +370,7 @@ struct PipelineData
     inline static constexpr std::string_view kNodePrefix_Ignore = "$";
     inline static constexpr std::string_view kNodeAttr_JumpBack = "[JumpBack]";
     inline static constexpr std::string_view kNodeAttr_Anchor = "[Anchor]";
+    inline static constexpr std::string_view kNodeAttr_Fallback = "[Fallback]";
 
     std::string name;
     bool enabled = true;
@@ -390,6 +399,12 @@ struct PipelineData
     WaitFreezesParam repeat_wait_freezes;
 
     uint max_hit = std::numeric_limits<uint>::max();
+
+    // Phase 1: loop_scan 模式相关字段（仅 entry 节点起作用，但统一放在 PipelineData 上以简化序列化）
+    TaskMode task_mode = TaskMode::StateMachine;
+    std::optional<std::string> fallback_node;
+    std::chrono::milliseconds cycle_delay { 1000 };
+    std::chrono::milliseconds cycle_delay_max { 0 };
 
     json::value focus;
     json::object attach;
