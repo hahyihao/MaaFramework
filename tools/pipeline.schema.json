@@ -4232,6 +4232,12 @@
                     "default": 1000,
                     "markdownDescription": "*uint* | *[uint, uint]*\n\nloop_scan 模式下每轮循环结束的等待时长，毫秒。可选，默认 1000 。\n\n- 标量 `1000`：固定 1000ms\n- 数组 `[800, 1500]`：每轮在 [800, 1500] ms 区间均匀随机"
                 },
+                "sub_pipeline": {
+                    "title": "Sub Pipeline Property",
+                    "description": "命中本节点后递归进入的子 pipeline 入口节点名（仅 loop_scan 模式下生效）。可选，默认空。",
+                    "type": "string",
+                    "markdownDescription": "*string*\n\n命中本节点后递归进入的子 pipeline 入口节点名（仅 loop_scan 模式下生效）。可选，默认空。\n\n子层执行**单次穿透**：扫一帧子层 chain → 命中 action / 全失败走子层兜底 → 返回上一层。\n\n最大递归深度 8 层，超过即放弃当前递归并打日志。"
+                },
                 "max_hit": {
                     "title": "Max Hit Property",
                     "description": "该节点最多可被识别成功多少次。可选，默认 UINT_MAX ，即无限制。",
