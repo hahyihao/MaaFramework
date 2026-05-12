@@ -33,10 +33,18 @@ enum class Type
     And,
     Or,
     Custom,
+    SubPipeline,
 };
 
 struct AndParam;
 struct OrParam;
+
+// SubPipeline recognition parameter: delegate the recognition phase to a sub-pipeline.
+// The sub-pipeline runs single-pass via execute_once; hit ⇒ this node hits with hit_box bubbled up.
+struct SubPipelineParam
+{
+    std::string recognition_pipeline;
+};
 
 using Param = std::variant<
     std::monostate,
@@ -49,7 +57,8 @@ using Param = std::variant<
     MAA_VISION_NS::ColorMatcherParam,
     std::shared_ptr<AndParam>,
     std::shared_ptr<OrParam>,
-    MAA_VISION_NS::CustomRecognitionParam>;
+    MAA_VISION_NS::CustomRecognitionParam,
+    SubPipelineParam>;
 
 // Inline sub-recognition with explicit type and params
 struct InlineSubRecognition
@@ -100,6 +109,8 @@ inline static const std::unordered_map<std::string, Type> kTypeMap = {
     { "or", Type::Or },
     { "Custom", Type::Custom },
     { "custom", Type::Custom },
+    { "SubPipeline", Type::SubPipeline },
+    { "subpipeline", Type::SubPipeline },
 };
 
 inline static const std::unordered_map<Type, std::string> kTypeNameMap = {
@@ -113,6 +124,7 @@ inline static const std::unordered_map<Type, std::string> kTypeNameMap = {
     { Type::And, "And" },
     { Type::Or, "Or" },
     { Type::Custom, "Custom" },
+    { Type::SubPipeline, "SubPipeline" },
 };
 } // namespace Recognition
 
